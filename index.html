@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/logo.png" />
+  <title>ListenDrift — Know When People Stop Listening</title>
+  <meta name="description" content="Predict attention drop before it happens with ListenDrift." />
+  <meta name="author" content="ListenDrift" />
+
+  <meta property="og:title" content="ListenDrift — Know When People Stop Listening" />
+  <meta property="og:description" content="Predict attention drop before it happens with ListenDrift." />
+  <meta property="og:type" content="website" />
+  <script>
+    (function () {
+      try {
+        const savedTheme = localStorage.getItem("listendrift-theme");
+        const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        const theme = savedTheme || systemTheme;
+
+        if (theme === "dark") {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+
+        // Ensure the resolved theme is saved if it wasn't already
+        if (!savedTheme) {
+          localStorage.setItem("listendrift-theme", theme);
+        }
+      } catch (e) {
+        console.error("Theme initialization failed", e);
+      }
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>
