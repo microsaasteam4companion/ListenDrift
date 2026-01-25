@@ -2,3 +2,10 @@ fastapi
 uvicorn
 python-multipart
 pydantic
+openai-whisper
+librosa
+textstat
+numpy
+scipy
+imageio-ffmpeg
+reportlab
