@@ -175,6 +175,57 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
 
+  // Recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ⏱️ Timer Effect - Handles recording timer
+  useEffect(() => {
+    console.log("🔄 Timer effect running, isRecording:", isRecording);
+
+    if (isRecording) {
+      console.log("⏱️ Setting up timer interval...");
+
+      // Clear any existing interval first
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+
+      // Create new interval
+      const intervalId = setInterval(() => {
+        console.log("⏱️ TICK!");
+        setRecordingTime(prev => {
+          const next = prev + 1;
+          console.log(`Timer: ${prev} -> ${next}`);
+          return next;
+        });
+      }, 1000);
+
+      recordingIntervalRef.current = intervalId;
+      console.log("✅ Timer interval created:", intervalId);
+
+    } else {
+      console.log("⏹️ Clearing timer interval...");
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+        console.log("✅ Timer cleared");
+      }
+    }
+
+    // Cleanup function
+    return () => {
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        console.log("🧹 Timer cleanup");
+      }
+    };
+  }, [isRecording]);
+
+
 
   // Actions
   const handleUploadClick = () => {
@@ -223,6 +274,110 @@ export default function Dashboard() {
     setState("idle");
     setError(null);
   };
+
+  // Recording handlers
+  const startRecording = async () => {
+    try {
+      // Request microphone permission
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Create MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      // Handle data available
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      // Handle recording stop
+      mediaRecorder.onstop = async () => {
+        // Create audio blob from chunks
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+        // Convert to File object
+        const audioFile = new File([audioBlob], `recording-${Date.now()}.webm`, {
+          type: 'audio/webm'
+        });
+
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+
+        // Clear interval
+        if (recordingIntervalRef.current) {
+          clearInterval(recordingIntervalRef.current);
+          recordingIntervalRef.current = null;
+        }
+
+        // Automatically upload and analyze
+        setFile(audioFile);
+        setState("uploading");
+        setError(null);
+        setProgress(0);
+        setRecordingTime(0);
+
+        try {
+          console.log("Uploading recorded audio...");
+          const id = await api.upload(audioFile);
+          console.log("Upload success, job id:", id);
+          setJobId(id);
+          setState("analyzing");
+        } catch (err) {
+          console.error("Upload failed", err);
+          setError("Failed to upload recorded audio. Please try again.");
+          setState("error");
+        }
+      };
+
+      // Start recording with timeslice to collect audio chunks
+      console.log("🔴 Starting MediaRecorder...");
+      mediaRecorder.start(1000); // Collect data every 1 second
+      console.log("✅ MediaRecorder started");
+
+      console.log("Setting isRecording to true");
+      setIsRecording(true);
+      console.log("Setting recordingTime to 0");
+      setRecordingTime(0);
+      console.log("Recording state updated");
+
+      // Start timer
+      console.log("⏱️ Creating timer interval...");
+      recordingIntervalRef.current = setInterval(() => {
+        console.log("⏱️ TIMER TICK!");
+        setRecordingTime(prev => {
+          const newTime = prev + 1;
+          console.log(`Timer: ${prev} -> ${newTime}`);
+          return newTime;
+        });
+      }, 1000);
+      console.log("✅ Timer interval created", recordingIntervalRef.current);
+
+    } catch (err) {
+      console.error("Failed to start recording:", err);
+      setError("Failed to access microphone. Please grant permission and try again.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const handleRecordClick = () => {
+    if (isProcessing) return;
+
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
 
   // Polling Effect
   useEffect(() => {
@@ -297,9 +452,25 @@ export default function Dashboard() {
       }
     };
 
-    const intervalId = setInterval(poll, 2000);
+    // Poll immediately, then every 1 second
+    poll();
+    const intervalId = setInterval(poll, 1000);
     return () => clearInterval(intervalId);
   }, [jobId, state]);
+
+  // Cleanup effect for recording
+  useEffect(() => {
+    return () => {
+      // Stop recording if component unmounts
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop();
+      }
+      // Clear recording interval
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    };
+  }, [isRecording]);
 
 
   const isProcessing = state === "uploading" || state === "analyzing";
@@ -365,26 +536,63 @@ export default function Dashboard() {
             <ContentCard
               variant="teal"
               className={cn(
-                "p-6 transition-all",
-                isProcessing ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"
+                "p-6 transition-all cursor-pointer hover:scale-[1.02] relative",
+                isRecording && "bg-destructive/20 border-destructive border-2"
               )}
-            // Record is non-functional per instructions
+              onClick={handleRecordClick}
             >
-              <Mic className="w-8 h-8 mb-4" />
-              <h3 className="text-xl font-bold mb-2">Record Audio</h3>
-              <p className="text-sm opacity-80">Coming soon</p>
+              {/* Recording indicator */}
+              {isRecording && (
+                <div className="absolute top-2 right-2 flex items-center gap-2">
+                  <div className="w-3 h-3 bg-destructive rounded-full"></div>
+                  <span className="text-xs font-bold text-destructive">REC</span>
+                </div>
+              )}
+
+              <Mic className={cn(
+                "w-8 h-8 mb-4 transition-all",
+                isRecording && "text-destructive scale-125"
+              )} />
+
+              <h3 className="text-xl font-bold mb-2">
+                {isRecording ? "🔴 Stop Recording" : "Record Audio"}
+              </h3>
+
+              <p className={cn(
+                "text-sm opacity-80",
+                isRecording && "text-destructive font-bold text-base opacity-100"
+              )}>
+                {isRecording
+                  ? `⏱️ Recording: ${Math.floor(recordingTime / 60)}:${(recordingTime % 60).toString().padStart(2, '0')}`
+                  : "Click to start recording"
+                }
+              </p>
+
+              {isRecording && (
+                <div className="mt-4 text-xs text-muted-foreground">
+                  Click again to stop and analyze
+                </div>
+              )}
             </ContentCard>
 
             <ContentCard
               variant="primary"
               className={cn(
-                "p-6 transition-all",
-                isProcessing ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"
+                "p-6 transition-all cursor-pointer hover:scale-[1.02]"
               )}
+              onClick={() => {
+                // Reset state for new analysis
+                setFile(null);
+                setJobId(null);
+                setState("idle");
+                setError(null);
+                setProgress(0);
+                setData(DEMO_DATA);
+              }}
             >
               <Play className="w-8 h-8 mb-4" />
-              <h3 className="text-xl font-bold mb-2">View Demo</h3>
-              <p className="text-sm opacity-80">See a sample analysis</p>
+              <h3 className="text-xl font-bold mb-2">Start New Analysis</h3>
+              <p className="text-sm opacity-80">Reset and analyze new audio</p>
             </ContentCard>
           </div>
 
@@ -428,15 +636,15 @@ export default function Dashboard() {
                 <div className="bg-secondary rounded-full h-2 w-full overflow-hidden relative">
                   <div
                     className="bg-primary h-full transition-all duration-300 ease-out"
-                    style={{ width: `${state === 'uploading' ? progress : 100}%` }}
+                    style={{ width: `${progress}%` }}
                   />
                   {/* Indeterminate shimmer for analyzing state */}
-                  {state === "analyzing" && (
+                  {state === "analyzing" && progress < 100 && (
                     <div className="absolute inset-0 bg-white/20 animate-shimmer" />
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2 font-mono">
-                  {state === "uploading" ? `${progress}%` : "Processing..."}
+                  {progress}% {state === "analyzing" && "- Analyzing..."}
                 </p>
               </div>
             </div>
@@ -449,10 +657,10 @@ export default function Dashboard() {
               <ContentCard variant="alert" className="p-6 mb-8 flex items-start gap-4">
                 <AlertTriangle className="w-6 h-6 text-destructive flex-shrink-0 mt-0.5" />
                 <div>
-                  <h3 className="font-bold text-lg mb-1">Critical Moment Detected</h3>
+                  <h3 className="font-bold text-lg mb-1">⚠️ Critical Moment Detected</h3>
                   <p className="text-muted-foreground">
-                    At <span className="text-foreground font-semibold">{data.criticalSection.start} – {data.criticalSection.end}</span>,{" "}
-                    <span className="text-destructive font-semibold">{data.criticalSection.risk}</span> of your audience is likely to lose focus.
+                    At <span className="text-foreground font-semibold">{data.criticalSection.start} – {data.criticalSection.end}</span>, your audience is{" "}
+                    <span className="text-destructive font-semibold">{data.criticalSection.risk}</span> likely to completely lose attention. This is the WORST moment in your speech.
                   </p>
                 </div>
               </ContentCard>
@@ -582,9 +790,42 @@ export default function Dashboard() {
 
               {/* Export */}
               <div className="flex justify-end">
-                <Button size="lg">
+                <Button
+                  size="lg"
+                  disabled={!jobId}
+                  onClick={async () => {
+                    if (!jobId) return;
+
+                    try {
+                      // Download PDF report from backend
+                      const response = await fetch(`http://localhost:8000/api/download-report/${jobId}`);
+
+                      if (!response.ok) {
+                        throw new Error('Failed to generate PDF report');
+                      }
+
+                      // Get the PDF blob
+                      const blob = await response.blob();
+
+                      // Create download link
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `speech-analysis-report-${file?.name || "report"}.pdf`;
+                      document.body.appendChild(a);
+                      a.click();
+
+                      // Cleanup
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    } catch (error) {
+                      console.error('Error downloading PDF:', error);
+                      alert('Failed to download PDF report. Please try again.');
+                    }
+                  }}
+                >
                   <Download className="w-5 h-5" />
-                  Download Report
+                  Download Detailed Report (PDF)
                 </Button>
               </div>
             </div>
