@@ -246,22 +246,22 @@ def analyze_audio_sync(job_id: str, file_path: str):
                     if segment_speech_rate > 220:
                         base_risk += 35
                         risk_reasons.append(f"speaking way too fast")
-                        detailed_problems.append(f"Attention dropped here because you are speaking way too fast ({segment_speech_rate:.0f} words/min). It is impossible for listeners to keep up.")
+                        detailed_problems.append(f"You spoke way too fast here ({segment_speech_rate:.0f} words/min). Listeners cannot keep up with this speed.")
                     elif segment_speech_rate > 190:
                         base_risk += 20
                         risk_reasons.append(f"speaking too fast")
-                        detailed_problems.append(f"This was flagged because your speaking speed is too fast ({segment_speech_rate:.0f} words/min), making it hard to follow your points.")
+                        detailed_problems.append(f"You spoke too fast here ({segment_speech_rate:.0f} words/min). It is hard to follow your points.")
                     
                     # Speaking TOO SLOW (serious boredom issue)
                     # Only flag if SIGNIFICANTLY too slow (<90 wpm = serious problem)
                     elif segment_speech_rate < 90:
                         base_risk += 30
                         risk_reasons.append(f"speaking way too slow")
-                        detailed_problems.append(f"Critical moment detected because your pace became extremely slow (only {segment_speech_rate:.0f} words/min). The audience is likely bored waiting for your next word.")
+                        detailed_problems.append(f"You spoke way too slowly here (only {segment_speech_rate:.0f} words/min). The audience will get bored waiting for your next word.")
                     elif segment_speech_rate < 110:
                         base_risk += 15
                         risk_reasons.append(f"speaking too slow")
-                        detailed_problems.append(f"This section is dragging because you are speaking too slowly ({segment_speech_rate:.0f} words/min). You risk losing the audience's interest.")
+                        detailed_problems.append(f"You spoke a bit too slowly here ({segment_speech_rate:.0f} words/min). You risk losing the audience's interest.")
                 
                 # 2. FILLER WORDS ANALYSIS
                 # Only flag if SERIOUSLY excessive (5+ fillers in one segment = real problem)
@@ -269,7 +269,7 @@ def analyze_audio_sync(job_id: str, file_path: str):
                 if segment_fillers >= 5:
                     base_risk += 30
                     risk_reasons.append(f"too many filler words")
-                    detailed_problems.append(f"Attention loss detected because you used {segment_fillers} filler words ('um', 'uh', 'like') in this short clip. This creates a distraction and makes you sound unsure.")
+                    detailed_problems.append(f"You used {segment_fillers} filler words ('um', 'uh', 'like') in this short clip. This makes you sound unsure of yourself.")
                 elif segment_fillers >= 3:
                     base_risk += 15
                     risk_reasons.append(f"several filler words")
@@ -281,11 +281,11 @@ def analyze_audio_sync(job_id: str, file_path: str):
                 if word_count > 50:
                     base_risk += 30
                     risk_reasons.append(f"extremely long section")
-                    detailed_problems.append(f"Critical issue found: You spoke {word_count} words without a single pause. Listeners enter 'cognitive overload' and stop paying attention.")
+                    detailed_problems.append(f"You spoke {word_count} words without a single pause. Listeners need a break to process this much information.")
                 elif word_count > 40:
                     base_risk += 15
                     risk_reasons.append(f"very long section")
-                    detailed_problems.append(f"This section is too long ({word_count} words) without a break. Your audience needs a pause to digest what you just said.")
+                    detailed_problems.append(f"This section is too long ({word_count} words) without a break. You need to pause to let your audience digest what you said.")
                 
                 # 4. LANGUAGE COMPLEXITY ANALYSIS
                 # Only flag if SERIOUSLY complex (reading ease < 30 = college level)
@@ -294,11 +294,11 @@ def analyze_audio_sync(job_id: str, file_path: str):
                     if segment_reading_ease < 20:
                         base_risk += 30
                         risk_reasons.append("very difficult language")
-                        detailed_problems.append(f"We flagged this because the words are too complicated. Your audience is likely confused and has tuned out.")
+                        detailed_problems.append(f"You used very complicated words here. The audience likely didn't understand what you meant.")
                     elif segment_reading_ease < 30:
                         base_risk += 15
                         risk_reasons.append("complex language")
-                        detailed_problems.append(f"The language here is a bit dense. It may be causing confusion for some listeners.")
+                        detailed_problems.append(f"The language here is dense and hard to follow. Try simpler words.")
             
             # 5. ENERGY/MONOTONE ANALYSIS
             # Only flag if SERIOUSLY low energy
@@ -311,11 +311,11 @@ def analyze_audio_sync(job_id: str, file_path: str):
                 if segment_rms < rms_mean - (2.0 * rms_std):  # Very extreme drop
                     base_risk += 35
                     risk_reasons.append("extremely low energy")
-                    detailed_problems.append("Critical engagement drop: Your voice became completely flat and monotone here. The lack of energy signals that this part is boring.")
+                    detailed_problems.append("Your voice became completely flat here. You stopped varying your pitch and volume, which sounds robotic.")
                 elif segment_rms < rms_mean - (1.5 * rms_std):
                     base_risk += 20
                     risk_reasons.append("low energy")
-                    detailed_problems.append("Your energy drops noticeably here. Try to sound more enthusiastic and vary your tone.")
+                    detailed_problems.append("Your voice got much quieter and flatter here. It sounds like you lost interest in what you were saying.")
             
             # 6. SILENCE/PAUSE ANALYSIS
             # Only flag SERIOUSLY long pauses (4+ seconds = awkward silence)
@@ -332,7 +332,7 @@ def analyze_audio_sync(job_id: str, file_path: str):
                         
                         base_risk += 65 # CRITICAL penalty for dead air
                         risk_reasons.append(f"no speech detected ({silence_duration:.1f}s)")
-                        detailed_problems.append(f"⚠️ No speech detected from {silence_time_range} ({silence_duration:.1f} seconds of silence). This is dead air - your audience will think the audio stopped or lose interest immediately.")
+                        detailed_problems.append(f"⚠️ Long silence detected ({silence_duration:.1f}s). This dead air kills the momentum of your speech.")
                     elif silence_duration > 4:
                         # Calculate time range for silence
                         silence_start_min = int(silence["start"] // 60)
@@ -343,7 +343,7 @@ def analyze_audio_sync(job_id: str, file_path: str):
                         
                         base_risk += 40 # HIGH penalty for long pauses
                         risk_reasons.append(f"long silence ({silence_duration:.1f}s)")
-                        detailed_problems.append(f"🔇 No speech detected from {silence_time_range} ({silence_duration:.1f} seconds). This pause is too long and awkward.")
+                        detailed_problems.append(f"🔇 Awkward pause ({silence_duration:.1f}s). This break is too long and feels unnatural.")
                     break
             
             
@@ -477,22 +477,22 @@ def analyze_audio_sync(job_id: str, file_path: str):
                 # Check for "Soft" deviations
                 if local_wpm < 130:
                     new_reasons.append("speaking too slow")
-                    new_problems.append(f"This section is a bit slow ({int(local_wpm)} words/min). It drags slightly relative to your best pace.")
+                    new_problems.append(f"This section is a bit slow ({int(local_wpm)} words/min). Ideally, pick up the pace slightly.")
                 elif local_wpm > 170:
                     new_reasons.append("speaking too fast") 
-                    new_problems.append(f"You create a small speed spike here ({int(local_wpm)} words/min). It might be slightly hard to catch every word.")
+                    new_problems.append(f"You create a small speed spike here ({int(local_wpm)} words/min). Make sure to enunciate clearly.")
                 
                 # Check for silence using the timeline data we already have? 
                 # If we can't easily check silence here, rely on WPM and length.
                 
                 if len(segment_text.split()) > 40:
                     new_reasons.append("long explanation")
-                    new_problems.append("This is a long block of text. A small pause would help here.")
+                    new_problems.append("This is a long sentence. A small pause would help here.")
                 
                 # If still no reason, default to energy/monotone as safe bet if it's the "worst" part
                 if not new_reasons:
                     new_reasons.append("energy dips")
-                    new_problems.append("Your energy dips slightly here compared to the rest of your speech.")
+                    new_problems.append("Your energy dips slightly here compared to the rest of your speech. Keep the energy up!")
                 
                 # FORCE update the entry
                 max_risk_entry["reasons"] = new_reasons
@@ -541,21 +541,21 @@ def analyze_audio_sync(job_id: str, file_path: str):
                     problematic_description = "There's a long silence here. Pauses this long make people uncomfortable and break your flow."
                 
                 elif any("energy" in r for r in reasons):
-                    problematic_description = "Your voice becomes flat and monotone here. When you sound bored, your audience feels bored too."
+                    problematic_description = "Your voice became quiet and flat here. When you lose vocal energy, your audience stops listening."
                 
                 elif any("filler" in r for r in reasons):
-                    problematic_description = "You're saying 'um', 'uh', and 'like' too many times here. This makes you sound nervous and unprepared."
+                    problematic_description = "You are saying 'um', 'uh', and 'like' too many times here. It breaks your flow."
                 
                 elif any("difficult" in r or "complex" in r for r in reasons):
-                    problematic_description = "You're using complicated words here. Most people won't understand what you mean - use simpler, everyday language instead."
+                    problematic_description = "You're using complicated words here. Use simpler, everyday language so everyone understands."
                 
                 elif any("long" in r for r in reasons):
-                    problematic_description = "This section goes on too long without any breaks. People can't process this much information at once and they'll tune out."
+                    problematic_description = "This section is too long without a pause. Listeners can't absorb all this info at once."
                 
                 else:
-                    problematic_description = max_risk_entry.get("description", "There's a problem here that might cause your audience to lose attention.")
+                    problematic_description = max_risk_entry.get("description", "There's a problem here that needs attention.")
                 
-                problematic_description += f"\n\nThis is your biggest problem - fix this to improve your speech."
+                problematic_description += f"\n\nThis is the biggest improvement area in your recording."
         else:
             section_title = "No Serious Problems Found"
             problematic_description = "Your speech looks good! No major issues that would cause your audience to lose attention."
@@ -617,32 +617,26 @@ def analyze_audio_sync(job_id: str, file_path: str):
             if any("too fast" in r or "way too fast" in r for r in reasons):
                 # Extract WPM if available
                 wpm_match = re.search(r'(\d+)\s+words per minute', detailed_problems[0] if detailed_problems else "")
-                current_wpm = wpm_match.group(1) if wpm_match else "unknown"
+                current_wpm = wpm_match.group(1) if wpm_match else "high"
                 
                 critical_description = (
                     f"🎯 PROBLEM: {detailed_problems[0] if detailed_problems else 'You are speaking too fast here.'}\n\n"
-                    f"✅ SOLUTION (Step-by-step):\n"
-                    f"1. Re-record this 10-second section starting at {critical_time}\n"
-                    f"2. Target speed: 140-160 words/minute (you're at {current_wpm} WPM)\n"
-                    f"3. Technique: Take a breath after every sentence\n"
-                    f"4. Practice: Say 2-3 words, pause 0.5 seconds, continue\n"
-                    f"5. Verify: Count words in 10 seconds - should be 23-27 words\n\n"
-                    f"💡 TIP: Use a metronome app at 140 BPM while practicing"
+                    f"✅ SOLUTION: Slow Down.\n"
+                    f"1. Breathe after every sentence.\n"
+                    f"2. Aim for 140-160 words per minute (you are much faster).\n"
+                    f"3. Pause for 0.5 seconds between phrases."
                 )
             
             elif any("too slow" in r or "way too slow" in r for r in reasons):
                 wpm_match = re.search(r'(\d+)\s+words per minute', detailed_problems[0] if detailed_problems else "")
-                current_wpm = wpm_match.group(1) if wpm_match else "unknown"
+                current_wpm = wpm_match.group(1) if wpm_match else "low"
                 
                 critical_description = (
                     f"🎯 PROBLEM: {detailed_problems[0] if detailed_problems else 'You are speaking too slowly here.'}\n\n"
-                    f"✅ SOLUTION (Step-by-step):\n"
-                    f"1. Re-record this section with more energy\n"
-                    f"2. Target speed: 140-160 words/minute (you're at {current_wpm} WPM)\n"
-                    f"3. Technique: Remove unnecessary pauses between words\n"
-                    f"4. Practice: Read the text out loud faster, then record\n"
-                    f"5. Energy: Stand up while recording - it naturally speeds you up\n\n"
-                    f"💡 TIP: Imagine you're excitedly telling a friend - natural enthusiasm increases pace"
+                    f"✅ SOLUTION: Speed Up and Add Energy.\n"
+                    f"1. Remove unnecessary pauses between words.\n"
+                    f"2. Stand up while recording to boost energy naturally.\n"
+                    f"3. Imagine you are excitedly telling a friend about this."
                 )
             
             elif any("pause" in r or "silence" in r or "no speech" in r for r in reasons):
@@ -652,34 +646,19 @@ def analyze_audio_sync(job_id: str, file_path: str):
                 
                 critical_description = (
                     f"🎯 PROBLEM: {detailed_problems[0] if detailed_problems else 'There is a long awkward silence here.'}\n\n"
-                    f"✅ SOLUTION (Choose one):\n"
-                    f"Option A - Edit it out:\n"
-                    f"  • Use audio editing software to cut the {silence_duration}-second gap\n"
-                    f"  • Add a smooth transition between the parts\n\n"
-                    f"Option B - Fill the silence:\n"
-                    f"  • Re-record and say: 'Now, here's the important part...'\n"
-                    f"  • Or: 'Let me explain this clearly...'\n"
-                    f"  • Or: 'This is crucial to understand...'\n\n"
-                    f"Option C - Prepare better:\n"
-                    f"  • Write bullet points for this section\n"
-                    f"  • Practice 3 times before recording\n\n"
-                    f"💡 TIP: Pauses should be under 3 seconds - any longer feels awkward"
+                    f"✅ SOLUTION: Remove the Dead Air.\n"
+                    f"1. Edit out the silence using your audio editor.\n"
+                    f"2. Or re-record and fill the gap with a transition phrase like 'Let me explain...'\n"
+                    f"3. Keep pauses under 2 seconds."
                 )
             
             elif any("energy" in r or "monotone" in r or "flat" in r for r in reasons):
                 critical_description = (
                     f"🎯 PROBLEM: {detailed_problems[0] if detailed_problems else 'Your voice sounds flat and boring here.'}\n\n"
-                    f"✅ SOLUTION (Step-by-step):\n"
-                    f"1. Re-record this part with these techniques:\n"
-                    f"2. Physical: Stand up, smile while talking (changes voice tone)\n"
-                    f"3. Emphasis: Make important words LOUDER and higher pitch\n"
-                    f"4. Variation: Go higher on questions, lower on statements\n"
-                    f"5. Emotion: Imagine you're explaining to someone you care about\n\n"
-                    f"💡 EXERCISE: Read this section 3 ways:\n"
-                    f"  - Excited (like good news)\n"
-                    f"  - Serious (like important warning)\n"
-                    f"  - Conversational (like chatting with friend)\n"
-                    f"Then pick the best one!"
+                    f"✅ SOLUTION: Boost Your Vocal Energy.\n"
+                    f"1. Stand up and smile while recording (this automatically changes your tone).\n"
+                    f"2. Vary your pitch: Go higher on questions, lower on statements.\n"
+                    f"3. Emphasize key words by saying them slightly louder."
                 )
             
             elif any("filler" in r for r in reasons):
@@ -689,32 +668,19 @@ def analyze_audio_sync(job_id: str, file_path: str):
                 
                 critical_description = (
                     f"🎯 PROBLEM: {detailed_problems[0] if detailed_problems else 'You are saying um, uh, and like too many times.'}\n\n"
-                    f"✅ SOLUTION (Step-by-step):\n"
-                    f"1. Write out EXACTLY what you want to say (word-for-word)\n"
-                    f"2. Practice reading it 5 times out loud\n"
-                    f"3. Record yourself - count the 'um's and 'uh's\n"
-                    f"4. When you feel 'um' coming → PAUSE SILENTLY instead\n"
-                    f"5. Keep re-recording until you get ZERO filler words\n\n"
-                    f"💡 TECHNIQUE: The '3-Second Rule'\n"
-                    f"  - If you need to think, pause for 1-2 seconds\n"
-                    f"  - Silence is better than 'um'\n"
-                    f"  - Your audience won't notice a 2-second pause\n\n"
-                    f"🎯 GOAL: Reduce from {filler_count_segment} fillers to 0 in this section"
+                    f"✅ SOLUTION: Pause Instead of Filler Words.\n"
+                    f"1. When you need to think, just stay silent for 1-2 seconds.\n"
+                    f"2. Silence sounds confident. 'Um' sounds unsure.\n"
+                    f"3. Re-record this section until you have zero filler words."
                 )
             
             elif any("difficult" in r or "complex" in r or "complicated" in r for r in reasons):
                 critical_description = (
                     f"🎯 PROBLEM: {detailed_problems[0] if detailed_problems else 'You are using words that are too complicated.'}\n\n"
-                    f"✅ SOLUTION (Step-by-step):\n"
-                    f"1. Rewrite this section using simple, everyday words\n"
-                    f"2. Test: Can a 12-year-old understand it? If no, simplify more\n"
-                    f"3. Replace jargon: Instead of technical terms, use common words\n"
-                    f"4. Add an example: 'For instance, imagine...'\n"
-                    f"5. Use analogies: 'It's like when you...'\n\n"
-                    f"💡 BEFORE/AFTER EXAMPLE:\n"
-                    f"  ❌ 'We leverage synergistic paradigms'\n"
-                    f"  ✅ 'We work together to solve problems'\n\n"
-                    f"🎯 RULE: If a word has 4+ syllables, explain it or replace it"
+                    f"✅ SOLUTION: Use Simpler Words.\n"
+                    f"1. Replace complex terms with everyday language.\n"
+                    f"2. Use shorter sentences.\n"
+                    f"3. Testing rule: Identify the hardest word and remove it."
                 )
             
             elif any("long" in r for r in reasons):
@@ -724,37 +690,20 @@ def analyze_audio_sync(job_id: str, file_path: str):
                 
                 critical_description = (
                     f"🎯 PROBLEM: {detailed_problems[0] if detailed_problems else 'This section is too long without any breaks.'}\n\n"
-                    f"✅ SOLUTION (Step-by-step):\n"
-                    f"1. Break this {word_count_segment}-word section into smaller chunks\n"
-                    f"2. Structure: Main point (15 sec) → Example (10 sec) → Pause (2 sec)\n"
-                    f"3. Add transitions: 'First...', 'Then...', 'Finally...'\n"
-                    f"4. Insert pauses: After each complete thought, pause 1-2 seconds\n"
-                    f"5. Verify: Each chunk should be 15-30 words maximum\n\n"
-                    f"💡 FORMULA:\n"
-                    f"  - Make your point (1 sentence)\n"
-                    f"  - Give an example (1 sentence)\n"
-                    f"  - Pause (let it sink in)\n"
-                    f"  - Move to next point\n\n"
-                    f"🎯 GOAL: Break into 3-4 smaller sections with clear pauses"
+                    f"✅ SOLUTION: Break It Down.\n"
+                    f"1. Add a pause after every main point.\n"
+                    f"2. Split long sentences into two shorter ones.\n"
+                    f"3. Give the audience 2 seconds to digest information before moving on."
                 )
             
             else:
                 # Multiple issues combined - give comprehensive advice
                 critical_description = (
                     f"🎯 PROBLEM: {detailed_problems[0] if detailed_problems else 'Multiple issues detected here.'}\n\n"
-                    f"✅ SOLUTION (Comprehensive approach):\n"
-                    f"1. Re-record this 10-second section completely\n"
-                    f"2. Focus on these 3 things:\n"
-                    f"   ✓ Energy: Stand up, smile, sound excited\n"
-                    f"   ✓ Clarity: Use simple, everyday words\n"
-                    f"   ✓ Pacing: Pause after each complete thought\n"
-                    f"3. Practice technique:\n"
-                    f"   - Read it out loud 3 times\n"
-                    f"   - Record each attempt\n"
-                    f"   - Pick the best one\n\n"
-                    f"💡 TIP: Fixing this ONE section will make the biggest difference\n"
-                    f"in your overall speech quality!\n\n"
-                    f"🎯 PRIORITY: This is your highest-risk moment - fix this first!"
+                    f"✅ SOLUTION: Simplify and Re-record.\n"
+                    f"1. Stand up and smile to fix energy.\n"
+                    f"2. Use simpler words to fix clarity.\n"
+                    f"3. Pause more often to fix pacing."
                 )
             
             suggestions.append({
@@ -813,17 +762,17 @@ def analyze_audio_sync(job_id: str, file_path: str):
         if jargon_density == "Very High":
             suggestions.append({
                 "title": "📚 Drastically Simplify Language",
-                "description": f"Readability score: {reading_ease:.0f}/100 (Very Hard). You're losing 80% of listeners. ACTION: (1) Replace jargon with everyday words, (2) Use the 'explain to a 12-year-old' test, (3) Add analogies for complex ideas."
+                "description": f"PROBLEM: Your words are too complicated (Score: {reading_ease:.0f}/100).\nSOLUTION: Use Everyday Words.\n1. Replace technical terms with simple words.\n2. Explain it like you're talking to a 12-year-old.\n3. Use examples for every hard concept."
             })
         elif jargon_density == "High":
             suggestions.append({
                 "title": "📖 Simplify Your Language",
-                "description": f"Readability score: {reading_ease:.0f}/100 (Hard). Define technical terms when first used. RULE: If a word has 4+ syllables, explain it or replace it. Add real-world examples."
+                "description": f"PROBLEM: Your language is hard to follow (Score: {reading_ease:.0f}/100).\nSOLUTION: Define Hard Terms.\n1. If a word has 4+ syllables, avoid it.\n2. When using a technical term, explain it immediately.\n3. Use analogies: 'It's like...'"
             })
         elif jargon_density == "Medium":
             suggestions.append({
                 "title": "✓ Good Language Balance",
-                "description": f"Readability score: {reading_ease:.0f}/100 (Moderate). Good balance of clarity and depth. Consider adding one concrete example for each abstract concept."
+                "description": f"Your complexity is balanced (Score: {reading_ease:.0f}/100). You are easy to understand but still sound professional. tip: Keep clear specific examples."
             })
         
         # Priority 6: Pattern-Based Suggestions
