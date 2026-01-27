@@ -41,6 +41,19 @@ export interface AnalysisResult {
     };
 }
 
+export interface AudienceAnalysisResult {
+    audience: string;
+    fit_score: number;
+    mismatches: string[];
+    suggestions: string[];
+    structural_insights: {
+        avg_response_length_sec?: number;
+        directness?: string;
+        explanation_ratio?: string;
+        [key: string]: any;
+    };
+}
+
 export const api = {
     upload: async (file: File): Promise<string> => {
         const formData = new FormData();
@@ -71,6 +84,14 @@ export const api = {
         const response = await fetch(`${API_BASE_URL}/result/${jobId}`);
         if (!response.ok) {
             throw new Error(`Result fetch failed: ${response.statusText}`);
+        }
+        return response.json();
+    },
+
+    getAudienceAnalysis: async (jobId: string, audience: string): Promise<AudienceAnalysisResult> => {
+        const response = await fetch(`${API_BASE_URL}/result/${jobId}?audience=${audience}`);
+        if (!response.ok) {
+            throw new Error(`Audience analysis fetch failed: ${response.statusText}`);
         }
         return response.json();
     }

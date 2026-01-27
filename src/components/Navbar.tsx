@@ -26,7 +26,7 @@ export function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border">
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
@@ -46,7 +46,10 @@ export function Navbar() {
             <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
               Pricing
             </a>
-            <Link to="/dashboard">
+            <Link to="/blog" className="text-muted-foreground hover:text-foreground transition-colors">
+              Blog
+            </Link>
+            <Link to="/login">
               <Button>Login</Button>
             </Link>
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
@@ -65,21 +68,43 @@ export function Navbar() {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-4 space-y-4 animate-fade-in">
-            <a href="#features" className="block text-muted-foreground hover:text-foreground">
-              Why it works
-            </a>
-            <a href="#how-it-works" className="block text-muted-foreground hover:text-foreground">
-              How It Works
-            </a>
-            <a href="#pricing" className="block text-muted-foreground hover:text-foreground">
-              Pricing
-            </a>
-            <div className="flex gap-3 pt-2">
-              <Link to="/dashboard">
-                <Button>Login</Button>
+          <div className="md:hidden py-6 space-y-6 border-t border-border animate-in slide-in-from-top-2 duration-200">
+            <div className="flex flex-col space-y-4">
+              <a
+                href="#features"
+                className="text-lg font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Features
+              </a>
+              <a
+                href="#how-it-works"
+                className="text-lg font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                How It Works
+              </a>
+              <a
+                href="#pricing"
+                className="text-lg font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Pricing
+              </a>
+              <Link
+                to="/blog"
+                className="text-lg font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Blog
               </Link>
-              <Button variant="ghost" size="icon" onClick={toggleTheme} className="w-10">
+            </div>
+
+            <div className="flex items-center gap-4 pt-2">
+              <Link to="/login" className="flex-1" onClick={() => setMobileMenuOpen(false)}>
+                <Button className="w-full">Get Started</Button>
+              </Link>
+              <Button variant="outline" size="icon" onClick={toggleTheme} className="shrink-0">
                 {theme === "light" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
               </Button>
             </div>

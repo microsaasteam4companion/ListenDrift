@@ -163,14 +163,24 @@ const Index = () => {
                   </a>
                 </li>
                 <li>
+                  <a href="#how-it-works" className="text-muted-foreground text-sm hover:text-primary transition-colors">
+                    How It Works
+                  </a>
+                </li>
+                <li>
                   <a href="#pricing" className="text-muted-foreground text-sm hover:text-primary transition-colors">
                     Pricing
                   </a>
                 </li>
                 <li>
-                  <Link to="/dashboard" className="text-muted-foreground text-sm hover:text-primary transition-colors">
-                    Dashboard
+                  <Link to="/blog" className="text-muted-foreground text-sm hover:text-primary transition-colors">
+                    Blog
                   </Link>
+                </li>
+                <li>
+                  <a href="#faq" className="text-muted-foreground text-sm hover:text-primary transition-colors">
+                    FAQ
+                  </a>
                 </li>
               </ul>
             </div>

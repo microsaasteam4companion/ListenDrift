@@ -166,7 +166,7 @@ export function HeroSection() {
         {/* 3. CTA Row - Bottom */}
         <div className="flex flex-wrap justify-center gap-4 relative z-40">
 
-          <Link to="/dashboard">
+          <Link to="/login">
             <Button variant="outline" size="xl" className="border-border bg-background hover:bg-secondary/50">
               <Upload className="w-5 h-5" />
               Upload Audio

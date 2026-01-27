@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -8,44 +9,32 @@ const plans = [
         price: "Free",
         description: "Perfect for trying out the analysis.",
         features: [
-            "1 Audio upload per month",
+            "General audience",
             "Basic attention timeline",
             "Jargon detection",
+            "Basic suggestions",
         ],
         cta: "Get Started",
         popular: false,
     },
     {
         name: "Pro",
-        price: "$29",
+        price: "$5",
         period: "/month",
-        description: "ForAll serious speakers and creators.",
+        description: "For all serious speakers and creators.",
         features: [
-            "Unlimited uploads",
             "Advanced engagement insights",
             "Detailed improvement suggestions",
+            "Targeted Audience",
             "Export PDF reports",
         ],
         cta: "Upgrade to Pro",
         popular: true,
     },
-    {
-        name: "Team",
-        price: "$99",
-        period: "/month",
-        description: "For agencies and coaching teams.",
-        features: [
-            "Everything in Pro",
-            "Team collaboration",
-            "API Access",
-            "Priority Support",
-        ],
-        cta: "Contact Sales",
-        popular: false,
-    },
 ];
 
 export function PricingSection() {
+    const navigate = useNavigate();
     return (
         <section id="pricing" className="py-24 px-6 bg-background">
             <div className="max-w-7xl mx-auto">
@@ -56,7 +45,7 @@ export function PricingSection() {
                     </p>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
                     {plans.map((plan) => (
                         <div
                             key={plan.name}
@@ -95,6 +84,7 @@ export function PricingSection() {
                                 variant={plan.popular ? "default" : "outline"}
                                 className="w-full"
                                 size="lg"
+                                onClick={() => navigate("/login")}
                             >
                                 {plan.cta}
                             </Button>

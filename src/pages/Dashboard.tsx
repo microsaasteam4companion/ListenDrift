@@ -23,16 +23,23 @@ import {
   FileAudio,
   CheckCircle2,
   XCircle,
+  LogOut,
+  Lock,
+  Crown,
+  Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/listendrift-logo-new.png";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 // --- Types & Default Data ---
 
 type AnalysisState = "idle" | "uploading" | "analyzing" | "complete" | "error";
 
-import { api } from "../services/api";
+import { api, AudienceAnalysisResult } from "../services/api";
 
 
 interface DashboardData {
@@ -163,6 +170,41 @@ const ANALYZED_DATA: DashboardData = {
   },
 };
 
+const SuggestionItem = ({ suggestion }: { suggestion: { icon: any; title: string; description: string } }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const lines = suggestion.description.split('\n').filter(line => line.trim());
+
+  return (
+    <ContentCard
+      variant="default"
+      className="p-6 flex items-start gap-4 cursor-pointer hover:scale-[1.01] transition-all"
+      onClick={() => setIsExpanded(!isExpanded)}
+    >
+      <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
+        <suggestion.icon className="w-5 h-5 text-primary-foreground" />
+      </div>
+      <div className="flex-1">
+        <h3 className="font-bold text-lg mb-1">{suggestion.title}</h3>
+        <div className="text-muted-foreground space-y-2">
+          {isExpanded ? (
+            lines.map((line, idx) => {
+              if (line.startsWith('🎯') || line.startsWith('✅') || line.startsWith('💡')) {
+                return <p key={idx} className="font-bold text-foreground mt-4 first:mt-0">{line}</p>;
+              }
+              return <p key={idx} className="whitespace-pre-wrap">{line}</p>;
+            })
+          ) : (
+            <p className="line-clamp-1">{lines[0]}</p>
+          )}
+        </div>
+      </div>
+      <div className={cn("transition-transform duration-200", isExpanded && "rotate-180")}>
+        <ChevronDown className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+      </div>
+    </ContentCard>
+  );
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -182,7 +224,44 @@ export default function Dashboard() {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ⏱️ Timer Effect - Handles recording timer
+  // Audience analysis state
+  const [selectedAudience, setSelectedAudience] = useState<string>("general");
+  const [audienceAnalysis, setAudienceAnalysis] = useState<AudienceAnalysisResult | null>(null);
+  const [audienceLoading, setAudienceLoading] = useState(false);
+
+  // Auth & Membership State
+  const [isPro, setIsPro] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setUserEmail(session.user.email || null);
+
+        // 1. Check user metadata (Fastest)
+        let proStatus = session.user.user_metadata?.is_pro === true;
+
+        // 2. Check profiles table (Reliable)
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profile?.role === 'pro') {
+            proStatus = true;
+          }
+        } catch (err) {
+          console.error("Profile fetch error:", err);
+        }
+
+        setIsPro(proStatus);
+      }
+    };
+    fetchSession();
+  }, []);
   useEffect(() => {
     console.log("🔄 Timer effect running, isRecording:", isRecording);
 
@@ -278,11 +357,27 @@ export default function Dashboard() {
   // Recording handlers
   const startRecording = async () => {
     try {
+      // CLEAR PREVIOUS DATA immediately when recording starts
+      setData(DEMO_DATA); // Or null, but keeping structure prevents crash
+      setFile(null);
+      setJobId(null);
+      setState("idle");
+      setError(null);
+      setProgress(0);
+      setAudienceAnalysis(null);
+
       // Request microphone permission
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Create MediaRecorder
-      const mediaRecorder = new MediaRecorder(stream);
+      // Create MediaRecorder with explicit MIME type if possible
+      let options = {};
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        options = { mimeType: 'audio/webm;codecs=opus' };
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        options = { mimeType: 'audio/webm' };
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -313,6 +408,8 @@ export default function Dashboard() {
         }
 
         // Automatically upload and analyze
+        // Force state updates to trigger processing UI
+        console.log("Recording stopped. Starting upload process...");
         setFile(audioFile);
         setState("uploading");
         setError(null);
@@ -472,6 +569,27 @@ export default function Dashboard() {
     };
   }, [isRecording]);
 
+  // Fetch audience analysis when audience changes or analysis completes
+  useEffect(() => {
+    const fetchAudienceAnalysis = async () => {
+      if (!jobId || state !== "complete") return;
+
+      setAudienceLoading(true);
+      try {
+        const result = await api.getAudienceAnalysis(jobId, selectedAudience);
+        console.log("Audience analysis result:", result);
+        console.log("Structural insights:", result.structural_insights);
+        setAudienceAnalysis(result);
+      } catch (err) {
+        console.error("Failed to fetch audience analysis:", err);
+        setAudienceAnalysis(null);
+      } finally {
+        setAudienceLoading(false);
+      }
+    };
+
+    fetchAudienceAnalysis();
+  }, [selectedAudience, jobId, state]);
 
   const isProcessing = state === "uploading" || state === "analyzing";
 
@@ -487,26 +605,42 @@ export default function Dashboard() {
       />
 
       {/* Dashboard Navbar / Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={logo} alt="ListenDrift Logo" className="h-8 w-auto object-contain" />
-            <span className="text-xl font-bold">ListenDrift</span>
+      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10 w-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <img src={logo} alt="ListenDrift Logo" className="h-6 sm:h-8 w-auto object-contain" />
+            <span className="text-lg sm:text-xl font-bold truncate max-w-[120px] sm:max-w-none">ListenDrift</span>
           </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-primary"
-            onClick={() => navigate("/")}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-primary p-2 sm:px-3 sm:py-2"
+              onClick={() => navigate("/")}
+            >
+              <ArrowLeft className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Back to Home</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 p-2 sm:px-3 sm:py-2"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                toast.success("Signed out successfully");
+                navigate("/");
+              }}
+            >
+              <LogOut className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </Button>
+          </div>
         </div>
       </header>
 
-      <main className="p-8 w-full">
+      <main className="p-4 sm:p-8 w-full overflow-x-hidden">
         <div className="max-w-6xl mx-auto">
           {/* Page Header */}
           <div className="mb-8">
@@ -519,7 +653,7 @@ export default function Dashboard() {
           </div>
 
           {/* Action Cards */}
-          <div className="grid md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
             <ContentCard
               variant="orange"
               className={cn(
@@ -653,6 +787,177 @@ export default function Dashboard() {
           {/* Results Section (Hidden while processing) */}
           {!isProcessing && !error && (
             <div className="animate-fade-in">
+              {/* Audience-Based Analysis Section */}
+              {audienceAnalysis && !isProcessing && !error && (
+                <div className="mb-8 space-y-6">
+                  {/* Audience Selection */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-lg font-semibold">Target Audience Analysis</h3>
+                    </div>
+
+                    <div className="flex gap-2 p-2 overflow-x-auto no-scrollbar mask-fade-right sm:flex-wrap">
+                      {[
+                        { key: "general", label: "General", isFree: true },
+                        { key: "students", label: "Students", isFree: false },
+                        { key: "professionals", label: "Professionals", isFree: false },
+                        { key: "interviews", label: "Interviews", isFree: false },
+                        { key: "marketing", label: "Marketing / Sales", isFree: false },
+                      ].map((audience) => (
+                        <div key={audience.key} className="relative group flex-shrink-0">
+                          <Button
+                            variant={selectedAudience === audience.key ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              if (audience.isFree || isPro) {
+                                setSelectedAudience(audience.key);
+                              } else {
+                                navigate("/#pricing");
+                                toast.info("Pro Feature", {
+                                  description: "Redirecting you to our plans..."
+                                });
+                              }
+                            }}
+                            disabled={audienceLoading}
+                            className={cn(
+                              "transition-all whitespace-nowrap",
+                              (!audience.isFree && !isPro) ? "pr-7" : "",
+                              selectedAudience === audience.key && "ring-2 ring-primary ring-offset-2",
+                              !audience.isFree && !isPro && "opacity-80"
+                            )}
+                          >
+                            {audience.label}
+                            {!audience.isFree && !isPro && (
+                              <Lock className="w-3 h-3 absolute right-2 text-amber-500" />
+                            )}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {!isPro && selectedAudience !== "general" && (
+                      <div className="mt-6 bg-amber-500/5 border border-amber-500/10 rounded-xl p-4 sm:p-6 flex flex-col items-center text-center animate-in slide-in-from-top-4 duration-300">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-500/20 rounded-full flex items-center justify-center mb-3">
+                          <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
+                        </div>
+                        <h4 className="font-bold text-base sm:text-lg mb-1">Pro Feature: {selectedAudience.charAt(0).toUpperCase() + selectedAudience.slice(1)} Analysis</h4>
+                        <p className="text-xs sm:text-sm text-muted-foreground mb-4 max-w-sm">
+                          You are currently viewing General Analysis. Upgrade to Pro to see how your speech specifically resonates with {selectedAudience}!
+                        </p>
+                        <Button
+                          className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-8 shadow-lg shadow-amber-500/20 w-full sm:w-auto"
+                          onClick={() => navigate("/#pricing")}
+                        >
+                          Upgrade to Pro 🚀
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Loading State */}
+                  {audienceLoading && (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      <span className="ml-2 text-muted-foreground">Analyzing for {selectedAudience}...</span>
+                    </div>
+                  )}
+
+                  {/* Analysis Cards */}
+                  {!audienceLoading && audienceAnalysis && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                      {/* Card 1: Audience Fit Score */}
+                      <ContentCard variant="default" className="p-6">
+                        <h4 className="font-bold text-lg mb-4">Audience Fit Score</h4>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Target Audience</p>
+                            <p className="font-semibold capitalize">{audienceAnalysis.audience}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-2">Fit Score</p>
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
+                                <div
+                                  className={cn(
+                                    "h-full transition-all duration-500",
+                                    audienceAnalysis.fit_score >= 70 ? "bg-green-500" :
+                                      audienceAnalysis.fit_score >= 50 ? "bg-yellow-500" :
+                                        "bg-red-500"
+                                  )}
+                                  style={{ width: `${audienceAnalysis.fit_score}%` }}
+                                />
+                              </div>
+                              <span className="font-bold text-2xl">{audienceAnalysis.fit_score}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </ContentCard>
+
+                      {/* Card 2: Audience Mismatches */}
+                      <ContentCard variant="default" className="p-6">
+                        <h4 className="font-bold text-lg mb-4 flex items-center gap-2">
+                          <AlertTriangle className="w-5 h-5 text-orange-500" />
+                          Audience Mismatches
+                        </h4>
+                        {audienceAnalysis.mismatches?.length > 0 ? (
+                          <ul className="space-y-2">
+                            {audienceAnalysis.mismatches.map((mismatch, idx) => (
+                              <li key={idx} className="flex items-start gap-2 text-sm">
+                                <span className="text-orange-500 mt-0.5">•</span>
+                                <span className="text-muted-foreground">{mismatch}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No significant mismatches detected.</p>
+                        )}
+                      </ContentCard>
+
+                      {/* Card 3: Improvement Suggestions */}
+                      <ContentCard variant="default" className="p-6">
+                        <h4 className="font-bold text-lg mb-4 flex items-center gap-2">
+                          <Lightbulb className="w-5 h-5 text-primary" />
+                          Improvement Suggestions
+                        </h4>
+                        {audienceAnalysis.suggestions?.length > 0 ? (
+                          <ul className="space-y-2">
+                            {audienceAnalysis.suggestions.map((suggestion, idx) => (
+                              <li key={idx} className="flex items-start gap-2 text-sm">
+                                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                <span className="text-muted-foreground">{suggestion}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Great job! No specific suggestions at this time.</p>
+                        )}
+                      </ContentCard>
+
+                      {/* Card 4: Structural Insights */}
+                      <ContentCard variant="default" className="p-6">
+                        <h4 className="font-bold text-lg mb-4">Structural Insights</h4>
+                        <div className="space-y-3">
+                          {audienceAnalysis.structural_insights && Object.keys(audienceAnalysis.structural_insights).length > 0 ? (
+                            Object.entries(audienceAnalysis.structural_insights).map(([key, value]) => (
+                              <div key={key} className="flex justify-between items-center">
+                                <span className="text-sm text-muted-foreground capitalize">
+                                  {key.replace(/_/g, " ")}
+                                </span>
+                                <span className="font-semibold text-sm">
+                                  {typeof value === "number" ? value.toFixed(1) : value}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Loading structural insights...</p>
+                          )}
+                        </div>
+                      </ContentCard>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Critical Alert */}
               <ContentCard variant="alert" className="p-6 mb-8 flex items-start gap-4">
                 <AlertTriangle className="w-6 h-6 text-destructive flex-shrink-0 mt-0.5" />
@@ -676,9 +981,9 @@ export default function Dashboard() {
                 <TabsContent value="overview">
                   <div className="grid lg:grid-cols-3 gap-6">
                     {/* Timeline */}
-                    <ContentCard variant="default" className="lg:col-span-2 p-6">
+                    <ContentCard variant="default" className="lg:col-span-2 p-4 sm:p-6">
                       <h3 className="text-xl font-bold mb-6">Attention Risk Timeline</h3>
-                      <TimelineBlock segments={data.timeline} />
+                      <TimelineBlock segments={data.timeline} criticalSection={data.criticalSection} />
                       <div className="flex items-center gap-4 mt-6 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded bg-mint" />
@@ -723,7 +1028,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Problematic Section */}
-                  <ContentCard variant="default" className="p-6 mt-6">
+                  <ContentCard variant="default" className="p-4 sm:p-6 mt-6">
                     <div className="flex items-center gap-3 mb-4">
                       <Badge variant="destructive">{data.problematicSection.range}</Badge>
                       <span className="text-muted-foreground">Problematic Section</span>
@@ -773,32 +1078,42 @@ export default function Dashboard() {
                 <TabsContent value="suggestions">
                   <div className="space-y-4">
                     {data.suggestions.map((suggestion, index) => (
-                      <ContentCard key={index} variant="default" className="p-6 flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
-                          <suggestion.icon className="w-5 h-5 text-primary-foreground" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg mb-1">{suggestion.title}</h3>
-                          <p className="text-muted-foreground">{suggestion.description}</p>
-                        </div>
-                        <ArrowRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                      </ContentCard>
+                      <SuggestionItem key={index} suggestion={suggestion} />
                     ))}
                   </div>
                 </TabsContent>
               </Tabs>
 
               {/* Export */}
-              <div className="flex justify-end">
+              <div className="flex flex-col items-center sm:items-end gap-3 mt-12 border-t border-border pt-8">
+                {!isPro && (
+                  <div className="flex items-center gap-2 text-sm text-amber-500 font-medium">
+                    <Sparkles className="w-4 h-4" />
+                    Exporting reports is a Pro feature
+                  </div>
+                )}
+
                 <Button
                   size="lg"
-                  disabled={!jobId}
+                  disabled={!jobId && isPro}
+                  className={cn(
+                    "gap-2 w-full sm:w-auto",
+                    !isPro && "border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
+                  )}
                   onClick={async () => {
+                    if (!isPro) {
+                      navigate("/#pricing");
+                      return;
+                    }
                     if (!jobId) return;
 
                     try {
-                      // Download PDF report from backend
-                      const response = await fetch(`http://localhost:8000/api/download-report/${jobId}`);
+                      // Download PDF report from backend with current audience selection
+                      const downloadUrl = selectedAudience
+                        ? `http://localhost:8000/api/download-report/${jobId}?audience=${selectedAudience}`
+                        : `http://localhost:8000/api/download-report/${jobId}`;
+
+                      const response = await fetch(downloadUrl);
 
                       if (!response.ok) {
                         throw new Error('Failed to generate PDF report');
@@ -824,8 +1139,8 @@ export default function Dashboard() {
                     }
                   }}
                 >
-                  <Download className="w-5 h-5" />
-                  Download Detailed Report (PDF)
+                  {isPro ? <Download className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                  {isPro ? "Download Detailed Report (PDF)" : "Unlock PDF Export"}
                 </Button>
               </div>
             </div>

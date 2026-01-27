@@ -188,18 +188,23 @@ class PDFReportGenerator:
             text = seg.get('text', '')
             start_time = seg.get('start', 0)
             
-            # Find all filler words in this segment
-            matches = re.finditer(r'\b(um|uh|like|you know|so|actually|basically|literally)\b', text.lower(), re.IGNORECASE)
-            for match in matches:
-                filler_word = match.group()
-                minutes = int(start_time // 60)
-                seconds = int(start_time % 60)
-                time_str = f"{minutes}:{seconds:02d}"
-                filler_instances.append({
-                    'word': filler_word,
-                    'time': time_str,
-                    'context': text.strip()
-                })
+            # Find all filler words in this segment using the passed pattern
+            # Use the pattern string directly if it's a string, or compile it
+            try:
+                matches = re.finditer(filler_pattern, text.lower(), re.IGNORECASE)
+                for match in matches:
+                    filler_word = match.group()
+                    minutes = int(start_time // 60)
+                    seconds = int(start_time % 60)
+                    time_str = f"{minutes}:{seconds:02d}"
+                    filler_instances.append({
+                        'word': filler_word,
+                        'time': time_str,
+                        'context': text.strip()
+                    })
+            except Exception as e:
+                print(f"Regex error: {e}")
+                continue
         
         if not filler_instances:
             self.story.append(Paragraph(
@@ -227,22 +232,23 @@ class PDFReportGenerator:
             ])
         
         # Create table
-        table = Table(table_data, colWidths=[0.4*inch, 0.8*inch, 1.2*inch, 4*inch])
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#2563eb')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), white),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), HexColor('#f3f4f6')),
-            ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#d1d5db')),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('TOPPADDING', (0, 1), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-        ]))
-        
-        self.story.append(table)
+        if len(table_data) > 1:
+            table = Table(table_data, colWidths=[0.4*inch, 0.8*inch, 1.2*inch, 4*inch])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), HexColor('#2563eb')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), HexColor('#f3f4f6')),
+                ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#d1d5db')),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('TOPPADDING', (0, 1), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ]))
+            
+            self.story.append(table)
         self.story.append(Spacer(1, 0.3*inch))
     
     def add_complex_words_detail(self, segments):
@@ -392,7 +398,28 @@ class PDFReportGenerator:
             
             # Suggestion description
             description = suggestion.get('description', '')
-            self.story.append(Paragraph(description, self.styles['BodyText']))
+            
+            # Split by newlines to preserve formatting
+            lines = description.split('\n')
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # Handle special formatting for lists or labels
+                if line.startswith('🎯') or line.startswith('✅') or line.startswith('💡'):
+                   self.story.append(Paragraph(f"<b>{line}</b>", self.styles['BodyText']))
+                elif line.startswith('1.') or line.startswith('2.') or line.startswith('3.') or line.startswith('4.') or line.startswith('5.'):
+                    # Indent numbered lists
+                    style = ParagraphStyle('List', parent=self.styles['BodyText'], leftIndent=20)
+                    self.story.append(Paragraph(line, style))
+                elif line.startswith('•') or line.startswith('-') or line.startswith('✓'):
+                     # Indent bullet lists
+                    style = ParagraphStyle('Bullet', parent=self.styles['BodyText'], leftIndent=30)
+                    self.story.append(Paragraph(line, style))
+                else:
+                    self.story.append(Paragraph(line, self.styles['BodyText']))
+                    
             self.story.append(Spacer(1, 0.15*inch))
         
         self.story.append(Spacer(1, 0.2*inch))
@@ -460,6 +487,64 @@ class PDFReportGenerator:
         self.story.append(table)
         self.story.append(Spacer(1, 0.3*inch))
     
+    def add_audience_analysis(self, audience_data):
+        """Add audience-specific analysis section"""
+        if not audience_data:
+            return
+
+        audience = audience_data.get('audience', 'General').capitalize()
+        fit_score = audience_data.get('fit_score', 0)
+        
+        self.story.append(Paragraph(f"Target Audience: {audience}", self.styles['SectionHeader']))
+        
+        # Fit score with color
+        score_color = '#16a34a' if fit_score >= 80 else '#d97706' if fit_score >= 60 else '#dc2626'
+        score_text = f"<b>Fit Score:</b> <font color='{score_color}'>{fit_score}/100</font>"
+        self.story.append(Paragraph(score_text, self.styles['BodyText']))
+        self.story.append(Spacer(1, 0.15*inch))
+        
+        # Mismatches
+        mismatches = audience_data.get('mismatches', [])
+        if mismatches:
+            self.story.append(Paragraph("<b>Mismatches Identified:</b>", self.styles['SubsectionHeader']))
+            for mismatch in mismatches:
+                self.story.append(Paragraph(f"• {mismatch}", self.styles['BodyText']))
+            self.story.append(Spacer(1, 0.15*inch))
+            
+        # Specific Suggestions
+        suggestions = audience_data.get('suggestions', [])
+        if suggestions:
+            self.story.append(Paragraph("<b>Audience-Specific Suggestions:</b>", self.styles['SubsectionHeader']))
+            for suggestion in suggestions:
+                self.story.append(Paragraph(f"• {suggestion}", self.styles['BodyText']))
+            self.story.append(Spacer(1, 0.15*inch))
+            
+        # Structural Insights Table
+        insights = audience_data.get('structural_insights', {})
+        if insights:
+            self.story.append(Paragraph("<b>Structural Insights:</b>", self.styles['SubsectionHeader']))
+            
+            table_data = [['Metric', 'Evaluation']]
+            for key, value in insights.items():
+                label = key.replace('_', ' ').capitalize()
+                table_data.append([label, str(value)])
+                
+            table = Table(table_data, colWidths=[2.5*inch, 4*inch])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), HexColor('#2563eb')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BACKGROUND', (0, 1), (-1, -1), HexColor('#f3f4f6')),
+                ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#d1d5db')),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+                ('TOPPADDING', (0, 1), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ]))
+            self.story.append(table)
+            
+        self.story.append(Spacer(1, 0.3*inch))
+
     def generate(self):
         """Generate the PDF file"""
         self.doc.build(self.story)
