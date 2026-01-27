@@ -981,7 +981,7 @@ export default function Dashboard() {
                 <TabsContent value="overview">
                   <div className="grid lg:grid-cols-3 gap-6">
                     {/* Timeline */}
-                    <ContentCard variant="default" className="lg:col-span-2 p-6">
+                    <ContentCard variant="default" className="lg:col-span-2 p-4 sm:p-6">
                       <h3 className="text-xl font-bold mb-6">Attention Risk Timeline</h3>
                       <TimelineBlock segments={data.timeline} criticalSection={data.criticalSection} />
                       <div className="flex items-center gap-4 mt-6 text-sm text-muted-foreground">
@@ -1028,7 +1028,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Problematic Section */}
-                  <ContentCard variant="default" className="p-6 mt-6">
+                  <ContentCard variant="default" className="p-4 sm:p-6 mt-6">
                     <div className="flex items-center gap-3 mb-4">
                       <Badge variant="destructive">{data.problematicSection.range}</Badge>
                       <span className="text-muted-foreground">Problematic Section</span>
@@ -1085,7 +1085,7 @@ export default function Dashboard() {
               </Tabs>
 
               {/* Export */}
-              <div className="flex flex-col items-end gap-3 mt-12 border-t border-border pt-8">
+              <div className="flex flex-col items-center sm:items-end gap-3 mt-12 border-t border-border pt-8">
                 {!isPro && (
                   <div className="flex items-center gap-2 text-sm text-amber-500 font-medium">
                     <Sparkles className="w-4 h-4" />
@@ -1097,7 +1097,7 @@ export default function Dashboard() {
                   size="lg"
                   disabled={!jobId && isPro}
                   className={cn(
-                    "gap-2",
+                    "gap-2 w-full sm:w-auto",
                     !isPro && "border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
                   )}
                   onClick={async () => {

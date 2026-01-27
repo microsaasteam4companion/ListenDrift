@@ -352,7 +352,10 @@ def analyze_audio_sync(job_id: str, file_path: str):
             
             timeline_entry = {
                 "time": time_str,
-                "risk": risk
+                "risk": risk,
+                "reasons": risk_reasons,
+                "detailed_problems": detailed_problems,
+                "segment_text": current_segment.get("text", "") if current_segment else ""
             }
             
             # Track all high-risk sections (>70%) for analysis
@@ -422,6 +425,8 @@ def analyze_audio_sync(job_id: str, file_path: str):
                 max_risk_entry = max(drop_risks, key=lambda x: int(x["risk"].rstrip("%")))
             else:
                 # No sections >70%, but we still want to show the highest risk point
+                # Use the detailed analysis from the timeline entry
+                
                 # Calculate end time (10 seconds after start)
                 time_parts = max_risk_time.split(":")
                 start_minutes = int(time_parts[0])
@@ -431,14 +436,68 @@ def analyze_audio_sync(job_id: str, file_path: str):
                 end_minutes = int(end_time_sec // 60)
                 end_seconds = int(end_time_sec % 60)
                 
+                # Use the DATA tied to this timeline point
                 max_risk_entry = {
                     "start": max_risk_time,
                     "end": f"{end_minutes}:{end_seconds:02d}",
                     "risk": f"{int(max_risk_value)}%",
-                    "description": f"This is the highest risk point in your speech, though overall your speech maintains good attention.",
-                    "reasons": ["This is your weakest moment, but still acceptable"],
+                    "description": max_timeline_entry.get("detailed_problems", ["This is the highest risk point in your speech."])[0] if max_timeline_entry.get("detailed_problems") else "This is your weakest moment, but still acceptable.",
+                    "reasons": max_timeline_entry.get("reasons", []),
+                    "detailed_problems": max_timeline_entry.get("detailed_problems", []),
+                    "segment_text": max_timeline_entry.get("segment_text", ""),
                     "risk_value": max_risk_value
                 }
+        
+        # --- 5.1 Enforce Specific Reasons for "Soft" Critical Moments ---
+        # If we have a max_risk_entry but NO reasons (because it didn't cross the high thresholds),
+        # we MUST find the "soft" reason why it was the highest risk point.
+        if max_risk_entry and not max_risk_entry.get("reasons"):
+            # Get the segment text if we don't have it
+            if not max_risk_entry.get("segment_text"):
+                # Find segment matching time
+                time_parts = max_risk_entry["start"].split(":")
+                start_sec = int(time_parts[0]) * 60 + int(time_parts[1])
+                for seg in segments:
+                    if seg.get("start", 0) <= start_sec <= seg.get("end", 0):
+                        max_risk_entry["segment_text"] = seg.get("text", "")
+                        break
+            
+            segment_text = max_risk_entry.get("segment_text", "")
+            # Calculate local metrics for this specific segment to find deviation
+            if len(segment_text) > 5:
+                # Estimate duration (default 10s if not precise)
+                seg_duration = 10 
+                # Calculate simple WPM
+                words = len(segment_text.split())
+                local_wpm = (words / seg_duration) * 60
+                
+                new_reasons = []
+                new_problems = []
+                
+                # Check for "Soft" deviations
+                if local_wpm < 130:
+                    new_reasons.append("speaking too slow")
+                    new_problems.append(f"This section is a bit slow ({int(local_wpm)} words/min). It drags slightly relative to your best pace.")
+                elif local_wpm > 170:
+                    new_reasons.append("speaking too fast") 
+                    new_problems.append(f"You create a small speed spike here ({int(local_wpm)} words/min). It might be slightly hard to catch every word.")
+                
+                # Check for silence using the timeline data we already have? 
+                # If we can't easily check silence here, rely on WPM and length.
+                
+                if len(segment_text.split()) > 40:
+                    new_reasons.append("long explanation")
+                    new_problems.append("This is a long block of text. A small pause would help here.")
+                
+                # If still no reason, default to energy/monotone as safe bet if it's the "worst" part
+                if not new_reasons:
+                    new_reasons.append("energy dips")
+                    new_problems.append("Your energy dips slightly here compared to the rest of your speech.")
+                
+                # FORCE update the entry
+                max_risk_entry["reasons"] = new_reasons
+                max_risk_entry["detailed_problems"] = new_problems
+                max_risk_entry["description"] = new_problems[0]
         
         # Build detailed problematic section description in SIMPLE LANGUAGE
         if max_risk_entry:
