@@ -151,7 +151,7 @@ const Login = () => {
                         >
                             <span className="font-medium">{isSignUp ? "Already registered?" : "New to ListenDrift?"}</span>
                             <span className="font-black text-blue-500 uppercase tracking-tighter border-b border-blue-500/20 group-hover:border-blue-500 transition-all pb-0.5">
-                                {isSignUp ? "Sign In" : "Get Access"}
+                                {isSignUp ? "Sign In" : "Sign Up"}
                             </span>
                         </button>
                     </div>

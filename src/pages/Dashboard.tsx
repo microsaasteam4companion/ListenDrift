@@ -170,6 +170,24 @@ const ANALYZED_DATA: DashboardData = {
   },
 };
 
+const ZERO_DATA: DashboardData = {
+  timeline: [],
+  criticalSection: { start: "0:00", end: "0:00", risk: "0%" },
+  stats: { dropRisk: "0%", jargonDensity: "0", fillerWords: "0" },
+  suggestions: [],
+  problematicSection: {
+    range: "N/A",
+    title: "No analysis yet",
+    description: "Upload an audio file to see analysis."
+  },
+  insights: {
+    jargon: { title: "Jargon", desc: "0" },
+    explanation: { title: "Explanation", desc: "0" },
+    monotone: { title: "Monotone", desc: "0" },
+    fillers: { title: "Fillers", desc: "0" },
+  },
+};
+
 const SuggestionItem = ({ suggestion }: { suggestion: { icon: any; title: string; description: string } }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const lines = suggestion.description.split('\n').filter(line => line.trim());
@@ -213,7 +231,7 @@ export default function Dashboard() {
   const [state, setState] = useState<AnalysisState>("idle");
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
-  const [data, setData] = useState<DashboardData>(DEMO_DATA);
+  const [data, setData] = useState<DashboardData>(ZERO_DATA);
   const [error, setError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
 
@@ -352,13 +370,14 @@ export default function Dashboard() {
     setJobId(null);
     setState("idle");
     setError(null);
+    setData(ZERO_DATA);
   };
 
   // Recording handlers
   const startRecording = async () => {
     try {
       // CLEAR PREVIOUS DATA immediately when recording starts
-      setData(DEMO_DATA); // Or null, but keeping structure prevents crash
+      setData(ZERO_DATA); // Or null, but keeping structure prevents crash
       setFile(null);
       setJobId(null);
       setState("idle");
@@ -721,7 +740,7 @@ export default function Dashboard() {
                 setState("idle");
                 setError(null);
                 setProgress(0);
-                setData(DEMO_DATA);
+                setData(ZERO_DATA);
               }}
             >
               <Play className="w-8 h-8 mb-4" />
