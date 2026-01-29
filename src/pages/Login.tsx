@@ -79,7 +79,7 @@ const Login = () => {
                 <div className="flex flex-col items-center mb-10 animate-in fade-in slide-in-from-top-4 duration-700">
                     <div className="relative mb-4 group">
                         <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
-                        <img src={logo} alt="ListenDrift" className="h-14 w-auto relative z-10 transition-transform active:scale-95 cursor-pointer" onClick={() => navigate('/')} />
+                        <img src={logo} alt="ListenDrift" className="h-20 w-auto relative z-10 transition-transform active:scale-95 cursor-pointer" onClick={() => navigate('/')} />
                     </div>
                     <h1 className="text-xl font-black text-white tracking-[0.2em] uppercase mb-1">ListenDrift</h1>
                     <div className="flex items-center gap-2 text-[10px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-3 py-1 rounded-full">

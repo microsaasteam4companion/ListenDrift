@@ -627,7 +627,7 @@ export default function Dashboard() {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10 w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
-            <img src={logo} alt="ListenDrift Logo" className="h-6 sm:h-8 w-auto object-contain" />
+            <img src={logo} alt="ListenDrift Logo" className="h-10 sm:h-14 w-auto object-contain" />
             <span className="text-lg sm:text-xl font-bold truncate max-w-[120px] sm:max-w-none">ListenDrift</span>
           </div>
 

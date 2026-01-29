@@ -23,18 +23,24 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configure FFMPEG path
-# Copy to local directory to avoid path issues with spaces/long paths
-original_ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
-ffmpeg_path = os.path.abspath("ffmpeg.exe")
+system_ffmpeg = shutil.which("ffmpeg")
 
-if not os.path.exists(ffmpeg_path):
-    try:
-        shutil.copy(original_ffmpeg, ffmpeg_path)
-    except Exception as e:
-        logger.warning(f"Could not copy ffmpeg: {e}")
-        ffmpeg_path = original_ffmpeg # Fallback
-
-logger.info(f"Using FFMPEG at: {ffmpeg_path}")
+if system_ffmpeg:
+    ffmpeg_path = system_ffmpeg
+    logger.info(f"Using system FFMPEG at: {ffmpeg_path}")
+else:
+    # Copy to local directory fallback (mostly for Windows local dev)
+    original_ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    ffmpeg_path = os.path.abspath("ffmpeg.exe")
+    
+    if not os.path.exists(ffmpeg_path):
+        try:
+            shutil.copy(original_ffmpeg, ffmpeg_path)
+        except Exception as e:
+            logger.warning(f"Could not copy ffmpeg: {e}")
+            ffmpeg_path = original_ffmpeg # Fallback
+    
+    logger.info(f"Using FFMPEG binary at: {ffmpeg_path}")
 
 # Load Whisper model globally to speed up requests
 logger.info("Loading Whisper model...")

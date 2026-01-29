@@ -140,7 +140,7 @@ const Index = () => {
             {/* Brand Column */}
             <div className="md:col-span-1">
               <div className="flex items-center gap-3 mb-4">
-                <img src={logo} alt="ListenDrift Logo" className="h-6 w-auto object-contain" />
+                <img src={logo} alt="ListenDrift Logo" className="h-12 w-auto object-contain" />
                 <span className="font-bold text-foreground">ListenDrift</span>
               </div>
               <p className="text-muted-foreground text-sm leading-relaxed">

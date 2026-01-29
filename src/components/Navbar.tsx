@@ -31,7 +31,7 @@ export function Navbar() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3">
-            <img src={logo} alt="ListenDrift Logo" className="h-8 w-auto object-contain" />
+            <img src={logo} alt="ListenDrift Logo" className="h-16 w-auto object-contain" />
             <span className="text-xl font-bold">ListenDrift</span>
           </Link>
 
