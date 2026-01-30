@@ -16,6 +16,8 @@ import textstat
 import re
 import imageio_ffmpeg
 import shutil
+import gc
+import torch
 from pdf_generator import generate_detailed_report
 
 # Configure logging
@@ -144,18 +146,22 @@ def analyze_audio_sync(job_id: str, file_path: str):
         
         model = get_model()
         # fp16=False is crucial for CPU execution
-        # language='en' and greedy decoding (beam_size=1) significantly speeds up CPU inference
-        # condition_on_previous_text=False speeds up processing further
-        result = model.transcribe(
-            wav_path, 
-            fp16=False, 
-            language='en', 
-            beam_size=1, 
-            best_of=1, 
-            temperature=0.0,
-            condition_on_previous_text=False,  # Faster processing
-            verbose=False  # Reduce logging overhead
-        )
+        # Using torch.no_grad() to significantly reduce memory overhead
+        with torch.no_grad():
+            result = model.transcribe(
+                wav_path, 
+                fp16=False, 
+                language='en', 
+                beam_size=1, 
+                best_of=1, 
+                temperature=0.0,
+                condition_on_previous_text=False,
+                verbose=False
+            )
+        
+        # Explicitly clear memory after transcription
+        gc.collect()
+        
         transcript_text = result["text"]
         segments = result.get("segments", [])
         
