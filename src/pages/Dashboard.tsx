@@ -340,8 +340,9 @@ export default function Dashboard() {
     if (selectedFile) {
       console.log("File selected:", selectedFile.name);
 
-      if (selectedFile.size > 50 * 1024 * 1024) { // 50MB limit check
-        setError("File size too large (max 50MB)");
+      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+      if (selectedFile.size > MAX_FILE_SIZE) {
+        setError(`File size too large (${(selectedFile.size / (1024 * 1024)).toFixed(1)}MB). Free tier limit is 10MB. Please upload a shorter clip or compress the file.`);
         return;
       }
       setFile(selectedFile);
@@ -424,6 +425,15 @@ export default function Dashboard() {
         if (recordingIntervalRef.current) {
           clearInterval(recordingIntervalRef.current);
           recordingIntervalRef.current = null;
+        }
+
+        // Limit check for recordings
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+        if (audioFile.size > MAX_FILE_SIZE) {
+          setError(`Recording is too large (${(audioFile.size / (1024 * 1024)).toFixed(1)}MB). Please keep recordings under 5-10 minutes.`);
+          setIsRecording(false);
+          setRecordingTime(0);
+          return;
         }
 
         // Automatically upload and analyze
