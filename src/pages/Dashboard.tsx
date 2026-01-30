@@ -875,7 +875,14 @@ export default function Dashboard() {
                         </p>
                         <Button
                           className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-8 shadow-lg shadow-amber-500/20 w-full sm:w-auto"
-                          onClick={() => navigate("/#pricing")}
+                          onClick={() => {
+                            const paymentUrl = import.meta.env.VITE_DODO_PAYMENT_URL;
+                            if (paymentUrl) {
+                              window.location.href = paymentUrl;
+                            } else {
+                              navigate("/#pricing");
+                            }
+                          }}
                         >
                           Upgrade to Pro 🚀
                         </Button>
@@ -1131,7 +1138,12 @@ export default function Dashboard() {
                   )}
                   onClick={async () => {
                     if (!isPro) {
-                      navigate("/#pricing");
+                      const paymentUrl = import.meta.env.VITE_DODO_PAYMENT_URL;
+                      if (paymentUrl) {
+                        window.location.href = paymentUrl;
+                      } else {
+                        navigate("/#pricing");
+                      }
                       return;
                     }
                     if (!jobId) return;
@@ -1139,8 +1151,8 @@ export default function Dashboard() {
                     try {
                       // Download PDF report from backend with current audience selection
                       const downloadUrl = selectedAudience
-                        ? `http://localhost:8000/api/download-report/${jobId}?audience=${selectedAudience}`
-                        : `http://localhost:8000/api/download-report/${jobId}`;
+                        ? `${api.API_BASE_URL}/download-report/${jobId}?audience=${selectedAudience}`
+                        : `${api.API_BASE_URL}/download-report/${jobId}`;
 
                       const response = await fetch(downloadUrl);
 
