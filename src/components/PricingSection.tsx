@@ -84,7 +84,18 @@ export function PricingSection() {
                                 variant={plan.popular ? "default" : "outline"}
                                 className="w-full"
                                 size="lg"
-                                onClick={() => navigate("/login")}
+                                onClick={() => {
+                                    if (plan.name === "Pro") {
+                                        const paymentUrl = import.meta.env.VITE_DODO_PAYMENT_URL;
+                                        if (paymentUrl) {
+                                            window.location.href = paymentUrl;
+                                        } else {
+                                            navigate("/login");
+                                        }
+                                    } else {
+                                        navigate("/login");
+                                    }
+                                }}
                             >
                                 {plan.cta}
                             </Button>
