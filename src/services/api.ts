@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 export interface UploadResponse {
     job_id: string;
@@ -107,5 +107,7 @@ export const api = {
             throw new Error(`Audience analysis fetch failed: ${response.statusText}`);
         }
         return response.json();
-    }
+    },
+
+    API_BASE_URL
 };
