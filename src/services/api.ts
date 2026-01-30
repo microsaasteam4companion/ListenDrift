@@ -59,17 +59,30 @@ export const api = {
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch(`${API_BASE_URL}/upload`, {
-            method: "POST",
-            body: formData,
-        });
-
-        if (!response.ok) {
-            throw new Error(`Upload failed: ${response.statusText}`);
+        // Check for common configuration error: trying to reach localhost from production
+        if (window.location.hostname !== 'localhost' && API_BASE_URL.includes('localhost')) {
+            console.error("CONFIGURATION ERROR: Trying to reach localhost API from production frontend. You must set VITE_API_URL in your Vercel environment variables to point to your deployed backend.");
         }
 
-        const data: UploadResponse = await response.json();
-        return data.job_id;
+        try {
+            const response = await fetch(`${API_BASE_URL}/upload`, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.statusText}`);
+            }
+
+            const data: UploadResponse = await response.json();
+            return data.job_id;
+        } catch (error: any) {
+            console.error("Upload error details:", error);
+            if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
+                throw new Error("Network error: Could not reach backend. If you are on Vercel, ensure VITE_API_URL is set to your deployed backend URL (not localhost).");
+            }
+            throw error;
+        }
     },
 
     getStatus: async (jobId: string): Promise<StatusResponse> => {
