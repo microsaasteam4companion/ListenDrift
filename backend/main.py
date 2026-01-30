@@ -42,11 +42,16 @@ else:
     
     logger.info(f"Using FFMPEG binary at: {ffmpeg_path}")
 
-# Load Whisper model globally to speed up requests
-logger.info("Loading Whisper model...")
-# Switch to "tiny" model for 5x-10x speedup on CPU vs "base"
-model = whisper.load_model("tiny", device="cpu")
-logger.info("Whisper model loaded.")
+# Load Whisper model lazily to save memory on start
+_model = None
+
+def get_model():
+    global _model
+    if _model is None:
+        logger.info("Loading Whisper model...")
+        _model = whisper.load_model("tiny", device="cpu")
+        logger.info("Whisper model loaded.")
+    return _model
 
 
 app = FastAPI()
@@ -133,10 +138,11 @@ def analyze_audio_sync(job_id: str, file_path: str):
         jobs[job_id]["progress"] = 30
 
         # --- 2. Transcription (Whisper) ---
-        # Model is now loaded globally
+        # Model is now loaded lazily
         jobs[job_id]["progress"] = 35
         logger.info("Transcribing...")
         
+        model = get_model()
         # fp16=False is crucial for CPU execution
         # language='en' and greedy decoding (beam_size=1) significantly speeds up CPU inference
         # condition_on_previous_text=False speeds up processing further
@@ -889,7 +895,7 @@ def analyze_audio_sync(job_id: str, file_path: str):
         if os.path.exists(wav_path):
             os.remove(wav_path)
 
-@app.post("/api/upload")
+@app.post("/upload")
 async def upload_audio(file: UploadFile = File(...), background_tasks: BackgroundTasks = None):
     job_id = str(uuid.uuid4())
     
@@ -913,7 +919,7 @@ async def upload_audio(file: UploadFile = File(...), background_tasks: Backgroun
     
     return {"job_id": job_id}
 
-@app.get("/api/status/{job_id}")
+@app.get("/status/{job_id}")
 async def get_status(job_id: str):
     if job_id not in jobs:
         return {"status": "failed", "error": "Job not found"}
@@ -1088,7 +1094,7 @@ def generate_audience_analysis(job_id: str, audience: str) -> Dict[str, Any]:
         }
     }
 
-@app.get("/api/result/{job_id}")
+@app.get("/result/{job_id}")
 async def get_result(job_id: str, audience: str = None):
     if job_id not in jobs:
         return {"error": "Job not found"}
@@ -1104,7 +1110,7 @@ async def get_result(job_id: str, audience: str = None):
         
     return jobs[job_id]["result"]
 
-@app.get("/api/download-report/{job_id}")
+@app.get("/download-report/{job_id}")
 async def download_report(job_id: str, audience: str = None):
     """Generate and download detailed PDF report"""
     if job_id not in jobs:
