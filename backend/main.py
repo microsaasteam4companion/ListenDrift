@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 import asyncio
 import uuid
@@ -903,6 +903,15 @@ def analyze_audio_sync(job_id: str, file_path: str):
 
 @app.post("/upload")
 async def upload_audio(file: UploadFile = File(...), background_tasks: BackgroundTasks = None):
+    # Backend safeguard: Limit file size to 10MB to prevent OOM
+    MAX_SIZE = 10 * 1024 * 1024
+    content = await file.read()
+    if len(content) > MAX_SIZE:
+        return JSONResponse(status_code=413, content={"error": "File too large. Max 10MB."})
+    
+    # Seek back to start after reading
+    await file.seek(0)
+    
     job_id = str(uuid.uuid4())
     
     # Save UploadFile to a temporary file locally
